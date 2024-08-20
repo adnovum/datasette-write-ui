@@ -82,11 +82,11 @@ async def edit_row_details(scope, receive, datasette, request):
 
     columns = []
     for row in await db.execute(
-        "select name, pk, hidden from pragma_table_xinfo(?)", [table_name]
+        "select name, pk, hidden, type from pragma_table_xinfo(?)", [table_name]
     ):
-        name, pk, hidden = row
+        name, pk, hidden, ctype = row
         columns.append(
-            {"pk": pk != 0, "name": name, "editable": pk == 0 and hidden not in [2, 3]}
+            {"pk": pk != 0, "name": name, "editable": pk == 0 and hidden not in [2, 3], "type": ctype}
         )  ##
 
     column_list = ", ".join(
@@ -115,13 +115,20 @@ async def edit_row_details(scope, receive, datasette, request):
             {"ok": False, "message": "No matching row found."}, status=400
         )
 
+    def get_type(col, value):
+        tp = {
+            "INTEGER": "int",
+            "TEXT": "str"
+        }.get(col["type"])
+        return tp or type(value).__name__
+
     for column in columns:
         value = row[column["name"]]
         fields.append(
             EditRowDetailsField(
                 key=column["name"],
                 value=value,
-                type=type(value).__name__,
+                type=get_type(column, value),
                 pk=column["pk"],
                 editable=column["editable"],
             )
